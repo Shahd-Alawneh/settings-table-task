@@ -1,0 +1,95 @@
+﻿@page "/settings"
+@rendermode InteractiveServer
+@using SettingsTableTask.Models
+@inject SettingsTableTask.Services.SettingService SettingService
+
+<h3 class="mb-3">Settings Table</h3>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert alert-success">@message</div>
+}
+
+<div class="mb-3">
+    <input class="form-control"
+           placeholder="Filter..."
+           @bind="filterText"
+           @bind:event="oninput" />
+</div>
+
+<table class="table table-bordered table-striped table-hover shadow">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Description</th>
+            <th>Created On</th>
+            <th>Save</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (filteredSettings.Any())
+        {
+            @foreach (var item in filteredSettings)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td class="text-muted">@item.SettingKey</td>
+                    <td>
+                        <input class="form-control" @bind="item.SettingValue" />
+                    </td>
+                    <td>@item.Description</td>
+                    <td>@item.CreatedOn.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm"
+                                disabled="@(originalValues.ContainsKey(item.Id) && originalValues[item.Id] == item.SettingValue)"
+                                @onclick="() => SaveRow(item)">
+                            Save
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="6" class="text-center">No data found</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Setting> settings = new();
+    private string filterText = string.Empty;
+    private string message = "";
+    private Dictionary<int, string> originalValues = new();
+
+    private IEnumerable<Setting> filteredSettings =>
+        settings.Where(x =>
+            string.IsNullOrWhiteSpace(filterText) ||
+            x.Id.ToString().Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+            x.SettingKey.Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+            x.SettingValue.Contains(filterText, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(x.Description) &&
+             x.Description.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+        );
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingService.GetAll();
+
+        foreach (var item in settings)
+        {
+            originalValues[item.Id] = item.SettingValue;
+        }
+    }
+
+    private async Task SaveRow(Setting setting)
+    {
+        await SettingService.Update(setting);
+        originalValues[setting.Id] = setting.SettingValue;
+        message = "Saved successfully!";
+    }
+}
